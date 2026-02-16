@@ -259,6 +259,21 @@ async def select_room(client: AsyncClient) -> MatrixRoom:
     return client.rooms[room_id]
 
 
+def sanitize_path_component(name: str, fallback: str = "unnamed") -> str:
+    """Sanitize a string for safe use as a file or directory name component.
+
+    Strips directory separators and traversal sequences to prevent
+    path traversal attacks from user-controlled input.
+    """
+    name = os.path.basename(name)
+    name = name.replace("\0", "")
+    name = name.replace("\\", "_")
+    name = name.replace("..", "_")
+    if not name or name.isspace():
+        name = fallback
+    return name
+
+
 def choose_filename(filename):
     start, ext = os.path.splitext(filename)
     for i in itertools.count(1):
@@ -294,7 +309,7 @@ async def write_event(
         await output_file.write(serialize_event(dict(type="text", body=event.body,)))
     elif isinstance(event, (RoomMessageMedia, RoomEncryptedMedia)):
         media_data = await download_mxc(client, event.url)
-        filename = choose_filename(f"{media_dir}/{event.body}")
+        filename = choose_filename(f"{media_dir}/{sanitize_path_component(event.body, 'media')}")
         async with aiofiles.open(filename, "wb") as f:
             try:
                 await f.write(
@@ -388,7 +403,7 @@ async def write_room_events(client, room):
                     # download media if necessary
                     if isinstance(event, (RoomMessageMedia, RoomEncryptedMedia)):
                         media_data = await download_mxc(client, event.url)
-                        filename = choose_filename(f"{media_dir}/{event.body}")
+                        filename = choose_filename(f"{media_dir}/{sanitize_path_component(event.body, 'media')}")
                         event.source["_file_path"] = filename
                         async with aiofiles.open(filename, "wb") as f_media:
                             try:
