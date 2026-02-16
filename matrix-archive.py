@@ -335,7 +335,8 @@ async def save_avatars(client: AsyncClient, room: MatrixRoom) -> None:
     avatar_dir = mkdir(f"{OUTPUT_DIR}/{safe_room_name}_{room.room_id}_avatars")
     for user in room.users.values():
         if user.avatar_url:
-            async with aiofiles.open(f"{avatar_dir}/{user.user_id}", "wb") as f:
+            safe_user_id = sanitize_path_component(user.user_id, "unknown_user")
+            async with aiofiles.open(f"{avatar_dir}/{safe_user_id}", "wb") as f:
                 await f.write(await download_mxc(client, user.avatar_url))
 
 
